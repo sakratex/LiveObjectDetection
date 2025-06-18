@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Nesne Tespiti</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #1e40af;
+      --background: #f8fafc;
+      --surface: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--background);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 30px 20px;
+      text-align: center;
+      background: var(--surface);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    header h1 {
+      font-size: 2rem;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .main {
+      display: flex;
+      padding: 30px;
+      gap: 30px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .video-container {
+      flex: 1;
+      min-width: 360px;
+      max-width: 720px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    video {
+      width: 100%;
+      display: block;
+    }
+
+    .sidebar {
+      flex: 0.7;
+      min-width: 300px;
+      max-width: 420px;
+      background-color: var(--surface);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+    }
+
+    .sidebar h2 {
+      font-size: 1.3rem;
+      margin-bottom: 16px;
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 6px;
+    }
+
+    .object-item {
+      background-color: #eff6ff;
+      color: var(--primary);
+      font-weight: 500;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    @keyframes fadeIn {
+      from {opacity: 0; transform: translateY(5px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+
+    @media (max-width: 768px) {
+      .main {
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Yapay Zeka Destekli Nesne Tespiti</h1>
+    <p>Gerçek zamanlı nesne tanıma ve listelenmesi (Demo)</p>
+  </header>
+
+  <div class="main">
+    <div class="video-container">
+      <video id="video" autoplay muted></video>
+    </div>
+
+    <div class="sidebar">
+      <h2>Tespit Edilen Nesneler</h2>
+      <div id="detected-objects">
+        <p class="empty">Henüz bir nesne algılanmadı.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const output = document.getElementById('detected-objects');
+
+    // Kamera aç
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        console.error('Kamera hatası:', err);
+      });
+
+    const isimler = {
+      knife: "Bıçak",
+      phone: "Telefon",
+      pen: "Kalem"
+    };
+
+    function simuleTespit() {
+      const olasilik = Math.random();
+      let sonuc = [];
+
+      if (olasilik < 0.25) sonuc = ["knife"];
+      else if (olasilik < 0.5) sonuc = ["phone"];
+      else if (olasilik < 0.75) sonuc = ["pen", "knife"];
+      else sonuc = [];
+
+      renderList(sonuc);
+    }
+
+    function renderList(items) {
+      output.innerHTML = '';
+
+      if (items.length === 0) {
+        output.innerHTML = '<p class="empty">Henüz bir nesne algılanmadı.</p>';
+        return;
+      }
+
+      items.forEach(key => {
+        const div = document.createElement('div');
+        div.className = 'object-item';
+        div.textContent = isimler[key] || key;
+        output.appendChild(div);
+      });
+    }
+
+    // Demo: Her 3 saniyede değişen örnek veriler
+    setInterval(simuleTespit, 3000);
+  </script>
+</body>
+</html>
