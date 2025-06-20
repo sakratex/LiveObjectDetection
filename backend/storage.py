@@ -1,5 +1,5 @@
 from typing import List
-from models import Detection
+from .models import Detection
 
 # Basit bir liste ile geçici veri saklıyoruz
 detections: List[Detection] = []
