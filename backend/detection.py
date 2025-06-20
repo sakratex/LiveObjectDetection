@@ -1,9 +1,11 @@
-
+import os
 from ultralytics import YOLO
 from PIL import Image
 import io
 
-model = YOLO(".\detect\globalprojob.pt")  
+# Model dosya yolunu proje köküne göre oluştur
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "detect", "globalprojob.pt")
+model = YOLO(MODEL_PATH)
 
 class_mapping = {
     "bicak": "Bıçak",
@@ -25,7 +27,8 @@ def detect_objects(image_bytes):
             if confidence >= 0.5:
                 detections.append({
                     "class": class_mapping.get(label, label),
-                    "confidence": round(confidence, 2)
+                    "confidence": round(confidence, 2),
+                    "box": [int(coord) for coord in box.xyxy[0].tolist()]
                 })
 
     return detections
