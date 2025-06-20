@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket
-from models import Detection
-import storage
-from detection import detect_objects
-from websocket_manager import WebSocketManager
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from .models import Detection
+from . import storage
+from .detection import detect_objects
+from .websocket_manager import WebSocketManager
 
 app = FastAPI(
     title="Nesne Tespiti API",
@@ -10,11 +12,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Statik frontend dosyalarını /static altında sun
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
 ws_manager = WebSocketManager()
 
 @app.get("/")
 def home():
-    return {"message": "Nesne Tespiti API'ye hoş geldiniz!"}
+    # Ana sayfa olarak index-2.html döndür
+    return FileResponse("frontend/index-2.html")
 
 @app.post("/detected-objects")
 async def post_detection(detection: Detection):
@@ -37,17 +43,16 @@ def get_latest():
 async def detect(file: UploadFile = File(...)):
     image_bytes = await file.read()
     detections = detect_objects(image_bytes)
-    
-    if detections:
-        await ws_manager.broadcast({"detections": detections})  
+    # Kutuları ve etiketleri içeren tüm tespitleri yayınla
+    await ws_manager.broadcast({"detections": detections})
     return {"detections": detections}
 
-#  WebSocket endpoint
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.connect(websocket)
     try:
         while True:
+            # Gelen mesajı bekle ve görmezden gel
             await websocket.receive_text()
     except Exception as e:
         print(f"WebSocket error: {e}")
