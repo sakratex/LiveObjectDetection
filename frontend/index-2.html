@@ -14,108 +14,29 @@
       --muted: #6b7280;
       --border: #e5e7eb;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background-color: var(--background); color: var(--text); min-height: 100vh; }
+    header { position: relative; padding: 30px 20px; text-align: center; background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    header h1 { font-size: 2rem; color: var(--primary); margin-bottom: 8px; }
+    header p { color: var(--muted); font-size: 1rem; }
+    #status-indicator { position: absolute; top: 20px; right: 20px; font-weight: 600; }
+    .status-connected { color: green; }
+    .status-disconnected { color: red; }
+    .main { display: flex; padding: 30px; gap: 30px; flex-wrap: wrap; justify-content: center; }
+    .video-container { position: relative; flex: 1; min-width: 360px; max-width: 720px; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    video, canvas { display: block; width: 100%; }
+    canvas { position: absolute; top: 0; left: 0; }
+    .sidebar { flex: 0.7; min-width: 300px; max-width: 420px; background-color: var(--surface); padding: 24px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
+    .sidebar h2 { font-size: 1.3rem; margin-bottom: 16px; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 6px; }
+    .object-item { background-color: #eff6ff; color: var(--primary); font-weight: 500; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; }
+    .empty { color: var(--muted); font-style: italic; }
+    @keyframes highlight {
+      from { background-color: #fde68a; }
+      to { background-color: transparent; }
     }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--background);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    header {
-      padding: 30px 20px;
-      text-align: center;
-      background: var(--surface);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    header h1 {
-      font-size: 2rem;
-      color: var(--primary);
-      margin-bottom: 8px;
-    }
-
-    header p {
-      color: var(--muted);
-      font-size: 1rem;
-    }
-
-    .main {
-      display: flex;
-      padding: 30px;
-      gap: 30px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .video-container {
-      flex: 1;
-      min-width: 360px;
-      max-width: 720px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 2px solid var(--border);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    }
-
-    video {
-      width: 100%;
-      display: block;
-    }
-
-    .sidebar {
-      flex: 0.7;
-      min-width: 300px;
-      max-width: 420px;
-      background-color: var(--surface);
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.05);
-    }
-
-    .sidebar h2 {
-      font-size: 1.3rem;
-      margin-bottom: 16px;
-      color: var(--primary);
-      border-bottom: 2px solid var(--primary);
-      padding-bottom: 6px;
-    }
-
-    .object-item {
-      background-color: #eff6ff;
-      color: var(--primary);
-      font-weight: 500;
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      transition: all 0.3s ease;
-      animation: fadeIn 0.4s ease;
-    }
-
-    .empty {
-      color: var(--muted);
-      font-style: italic;
-    }
-
-    @keyframes fadeIn {
-      from {opacity: 0; transform: translateY(5px);}
-      to {opacity: 1; transform: translateY(0);}
-    }
-
+    .new-item { animation: highlight 1s ease; }
     @media (max-width: 768px) {
-      .main {
-        flex-direction: column;
-        align-items: center;
-        padding: 20px;
-      }
+      .main { flex-direction: column; align-items: center; padding: 20px; }
     }
   </style>
 </head>
@@ -124,13 +45,14 @@
   <header>
     <h1>Yapay Zeka Destekli Nesne Tespiti</h1>
     <p>Gerçek zamanlı nesne tanıma ve listelenmesi (Demo)</p>
+    <div id="status-indicator" class="status-disconnected">● Bağlantı Koptu</div>
   </header>
 
   <div class="main">
     <div class="video-container">
       <video id="video" autoplay muted></video>
+      <canvas id="overlay"></canvas>
     </div>
-
     <div class="sidebar">
       <h2>Tespit Edilen Nesneler</h2>
       <div id="detected-objects">
@@ -141,53 +63,104 @@
 
   <script>
     const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const ctx = overlay.getContext('2d');
+    const statusEl = document.getElementById('status-indicator');
     const output = document.getElementById('detected-objects');
 
-    // Kamera aç
+    // Gizli canvas hazırlığı
+    const captureCanvas = document.createElement('canvas');
+    const captureCtx = captureCanvas.getContext('2d');
+
+    // Kamera akışı
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
         video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+          captureCanvas.width = video.videoWidth;
+          captureCanvas.height = video.videoHeight;
+        };
       })
-      .catch(err => {
-        console.error('Kamera hatası:', err);
+      .catch(err => console.error('Kamera hatası:', err));
+
+    // WebSocket bağlantısı ve yeniden deneme
+    let ws;
+    function connect() {
+      ws = new WebSocket(`ws://${location.host}/ws`);
+      ws.onopen = () => updateStatus(true);
+      ws.onclose = () => { updateStatus(false); setTimeout(connect, 3000); };
+      ws.onerror = () => updateStatus(false);
+      ws.onmessage = event => {
+        const msg = JSON.parse(event.data);
+        drawDetections(msg.detections);
+        renderList(msg.detections);
+      };
+    }
+    connect();
+
+    function updateStatus(connected) {
+      statusEl.textContent = connected ? '● Bağlandı' : '● Bağlantı Koptu';
+      statusEl.className = connected ? 'status-connected' : 'status-disconnected';
+    }
+
+    // Sürekli çizim döngüsü
+    function loop() {
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      requestAnimationFrame(loop);
+    }
+    loop();
+
+    function drawDetections(detections) {
+      detections.forEach(det => {
+        const [x1, y1, x2, y2] = det.box;
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        ctx.fillStyle = 'red';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(`${det.class} (${det.confidence})`, x1, y1 > 20 ? y1 - 5 : y1 + 15);
       });
-
-    const isimler = {
-      knife: "Bıçak",
-      phone: "Telefon",
-      pen: "Kalem"
-    };
-
-    function simuleTespit() {
-      const olasilik = Math.random();
-      let sonuc = [];
-
-      if (olasilik < 0.25) sonuc = ["knife"];
-      else if (olasilik < 0.5) sonuc = ["phone"];
-      else if (olasilik < 0.75) sonuc = ["pen", "knife"];
-      else sonuc = [];
-
-      renderList(sonuc);
     }
 
     function renderList(items) {
       output.innerHTML = '';
-
-      if (items.length === 0) {
+      if (!items.length) {
         output.innerHTML = '<p class="empty">Henüz bir nesne algılanmadı.</p>';
         return;
       }
-
-      items.forEach(key => {
+      items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'object-item';
-        div.textContent = isimler[key] || key;
+        let icon = '';
+        if (item.class === 'Telefon') icon = '📱';
+        else if (item.class === 'Bıçak') icon = '🔪';
+        else if (item.class === 'Kalem') icon = '✏️';
+        div.textContent = `${icon} ${item.class} (${item.confidence})`;
+        div.classList.add('new-item');
+        setTimeout(() => div.classList.remove('new-item'), 1000);
         output.appendChild(div);
       });
     }
 
-    // Demo: Her 3 saniyede değişen örnek veriler
-    setInterval(simuleTespit, 3000);
+    // Periyodik tespit gönderimi
+    function detectFrame() {
+      captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+      captureCanvas.toBlob(blob => {
+        const form = new FormData();
+        form.append('file', blob, 'frame.jpg');
+        fetch('/detect', { method: 'POST', body: form })
+          .then(res => res.json())
+          .then(data => {
+            drawDetections(data.detections);
+            renderList(data.detections);
+          })
+          .catch(err => console.error('Detect error:', err));
+      }, 'image/jpeg');
+    }
+    setInterval(detectFrame, 500);
+
   </script>
 </body>
 </html>
